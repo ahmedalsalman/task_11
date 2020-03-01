@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect
-from .models import Restaurant, Item
-from .forms import RestaurantForm, ItemForm, SignupForm, SigninForm
+from .models import Restaurant ,Item
+from .forms import RestaurantForm, SignupForm, SigninForm, ItemForm
 from django.contrib.auth import login, authenticate, logout
-
+from django.http import Http404
 def signup(request):
     form = SignupForm()
     if request.method == 'POST':
@@ -54,11 +54,13 @@ def restaurant_detail(request, restaurant_id):
     items = Item.objects.filter(restaurant=restaurant)
     context = {
         "restaurant": restaurant,
-        "items": items,
+        "items": items
     }
     return render(request, 'detail.html', context)
 
 def restaurant_create(request):
+    if request.user.is_anonymous:
+        return redirect('signin')
     form = RestaurantForm()
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES)
@@ -73,8 +75,10 @@ def restaurant_create(request):
     return render(request, 'create.html', context)
 
 def item_create(request, restaurant_id):
-    form = ItemForm()
     restaurant = Restaurant.objects.get(id=restaurant_id)
+    if not request.user.is_staff and request.user !=  restaurant.owner:
+        return redirect('noaccess')
+    form = ItemForm()
     if request.method == "POST":
         form = ItemForm(request.POST)
         if form.is_valid():
@@ -88,8 +92,14 @@ def item_create(request, restaurant_id):
     }
     return render(request, 'item_create.html', context)
 
+def noaccess (request):
+    return render(request , 'noaccess.html')
+
+
 def restaurant_update(request, restaurant_id):
     restaurant_obj = Restaurant.objects.get(id=restaurant_id)
+    if not request.user.is_staff and request.user !=  restaurant_obj.owner:
+        return redirect('noaccess')
     form = RestaurantForm(instance=restaurant_obj)
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES, instance=restaurant_obj)
